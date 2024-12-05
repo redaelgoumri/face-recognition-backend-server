@@ -1,6 +1,7 @@
 asyncio
 websockets
 deepface
+tensorflow-cpu
 numpy
 Pillow
 scikit-learn

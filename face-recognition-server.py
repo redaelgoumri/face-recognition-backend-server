@@ -1,3 +1,9 @@
+import os
+import os
+
+# Disable GPU to avoid cuDNN/cuBLAS errors
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+
 import asyncio
 import websockets
 import json
@@ -9,7 +15,6 @@ from PIL import Image
 import base64
 from supabase import create_client, Client
 from dotenv import load_dotenv
-import os
 
 # Load environment variables from the .env file
 load_dotenv()
