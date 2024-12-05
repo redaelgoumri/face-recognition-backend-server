@@ -15,7 +15,7 @@ import base64
 from supabase import create_client, Client
 from dotenv import load_dotenv
 
-# Load environment variables from the .env file
+# Load environment variables from the .env files
 load_dotenv()
 
 # Initialize Supabase client
