@@ -1,5 +1,4 @@
 import os
-import os
 
 # Disable GPU to avoid cuDNN/cuBLAS errors
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
@@ -18,9 +17,6 @@ from dotenv import load_dotenv
 
 # Load environment variables from the .env file
 load_dotenv()
-
-# Use Render's assigned PORT
-port = int(os.getenv("PORT", 10000))
 
 # Initialize Supabase client
 url = os.getenv("SUPABASE_URL")
@@ -60,28 +56,59 @@ async def websocket_handler(websocket):
     try:
         # Expect the first message to contain session details
         initial_message = await websocket.recv()
-        session_data = json.loads(initial_message)
+        print(f"Received initial message: {initial_message}")
+
+        try:
+            session_data = json.loads(initial_message)
+        except json.JSONDecodeError as e:
+            error_message = {"status": False, "message": "Invalid JSON format"}
+            print(f"JSON Decode Error: {e}. Sending: {error_message}")
+            await websocket.send(json.dumps(error_message))
+            return
+
+        # Extract session details
         year = session_data.get("year")
         specialty = session_data.get("specialty")
         group = session_data.get("group")
+        print(f"Parsed session details: year={year}, specialty={specialty}, group={group}")
 
         if not year or not specialty or not group:
-            await websocket.send(json.dumps({"status": False, "message": "Invalid session details"}))
+            error_message = {"status": False, "message": "Invalid session details"}
+            print(f"Invalid session details: {session_data}. Sending: {error_message}")
+            await websocket.send(json.dumps(error_message))
             return
 
         # Load session embeddings
+        print(f"Loading embeddings for year={year}, specialty={specialty}, group={group}")
         load_session_embeddings(year, specialty, group)
+        print("Embeddings loaded successfully.")
 
+        # Notify client of successful initialization
+        success_message = {"status": True, "message": "Session initialized"}
+        print(f"Sending: {success_message}")
+        await websocket.send(json.dumps(success_message))
+
+        # Process subsequent messages for face recognition
         async for message in websocket:
-            response = recognize_face(message)
-            await websocket.send(json.dumps(response))
+            print(f"Received face recognition message: {message}")
+
+            try:
+                response = recognize_face(message)
+                print(f"Sending face recognition response: {response}")
+                await websocket.send(json.dumps(response))
+            except Exception as e:
+                error_message = {"status": False, "message": f"Error processing message: {str(e)}"}
+                print(f"Error: {str(e)}. Sending: {error_message}")
+                await websocket.send(json.dumps(error_message))
+
     except websockets.exceptions.ConnectionClosed:
         print("Connection closed.")
-        # Clear the session embeddings when the connection is closed
+    except Exception as e:
+        print(f"Unexpected WebSocket Error: {str(e)}")
+    finally:
+        # Clear the session embeddings when the connection is closed or an error occurs
         session_embeddings.clear()
         print("Cleared session embeddings.")
-    except Exception as e:
-        print(f"WebSocket Error: {str(e)}")
 
 
 # Recognize face from the incoming image
@@ -134,8 +161,9 @@ def compare_faces(unknown_face_embedding):
 
 # Main server
 async def main():
-    server = await websockets.serve(websocket_handler, "0.0.0.0", 10000, origins=["*", None])
-    print("Server started at ws://0.0.0.0")
+    port = int(os.getenv("PORT", 8765))  # Default to 8765 for local testing
+    server = await websockets.serve(websocket_handler, "0.0.0.0", port)
+    print("Server started at ws://0.0.0.0:8765")
     await server.wait_closed()
 
 
