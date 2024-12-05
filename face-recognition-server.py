@@ -20,7 +20,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Use Render's assigned PORT
-port = int(os.getenv("PORT", 8765))
+port = int(os.getenv("PORT", 10000))
 
 # Initialize Supabase client
 url = os.getenv("SUPABASE_URL")
@@ -134,7 +134,7 @@ def compare_faces(unknown_face_embedding):
 
 # Main server
 async def main():
-    server = await websockets.serve(websocket_handler, "0.0.0.0", 8765, origins=["*", None])
+    server = await websockets.serve(websocket_handler, "0.0.0.0", 10000, origins=["*", None])
     print("Server started at ws://0.0.0.0")
     await server.wait_closed()
 
