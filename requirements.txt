@@ -1,8 +1,8 @@
 asyncio
-websockets==10.4
-deepface==0.0.79
-numpy==1.22.0
-Pillow==9.1.1
-scikit-learn==1.0.2
-python-dotenv==0.21.0
-supabase==0.1.8
+websockets
+deepface
+numpy
+Pillow
+scikit-learn
+python-dotenv
+supabase
