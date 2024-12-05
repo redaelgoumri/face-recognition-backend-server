@@ -134,7 +134,7 @@ def compare_faces(unknown_face_embedding):
 
 # Main server
 async def main():
-    server = await websockets.serve(websocket_handler, "0.0.0.0", 10000)
+    server = await websockets.serve(websocket_handler, "0.0.0.0", 8765)
     print("Server started at ws://0.0.0.0")
     await server.wait_closed()
 
