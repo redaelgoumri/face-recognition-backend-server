@@ -54,6 +54,7 @@ def generate_embeddings():
                 "group": group,
                 "last_name": last_name,
                 "first_name": first_name,
+                "isMale" : isMale
             }
             embedding_json = json.dumps(embedding)
 

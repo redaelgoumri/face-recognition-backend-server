@@ -1,7 +1,7 @@
 import os
 
 # Disable GPU to avoid cuDNN/cuBLAS errors
-os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+# os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
 import asyncio
 import websockets
@@ -31,23 +31,27 @@ session_embeddings = {}
 def load_session_embeddings(year, specialty, group):
     try:
         # Query Supabase for students in the specified year, specialty, and group
-        response = supabase.table("Students").select("first_name, last_name, embeddings").match({
+        response = supabase.table("Students").select("id, first_name, last_name, embeddings").match({
             "year": year,
             "specialty": specialty,
             "group": group
         }).execute()
 
         if response.data:
-            # Store embeddings in memory for quick access
+            # Store embeddings and user IDs in memory for quick access
             session_embeddings.clear()
             for student in response.data:
                 name = f"{student['first_name']} {student['last_name']}"
-                session_embeddings[name] = np.array(json.loads(student['embeddings']))
+                session_embeddings[name] = {
+                    "id": student['id'],  # Store user ID
+                    "embedding": np.array(json.loads(student['embeddings']))
+                }
             print(f"Loaded embeddings for session {year}-{specialty}-{group}: {len(session_embeddings)} students.", flush=True)
         else:
             print(f"No students found for session {year}-{specialty}-{group}.", flush=True)
     except Exception as e:
         print(f"Error loading session embeddings: {e}", flush=True)
+
 
 
 # WebSocket handler
@@ -90,7 +94,7 @@ async def websocket_handler(websocket):
 
         # Process subsequent messages for face recognition
         async for message in websocket:
-            print(f"Received face recognition message: {message}", flush=True)
+            print(f"Received face recognition message: <IMAGE>", flush=True)
 
             try:
                 response = recognize_face(message)
@@ -134,12 +138,13 @@ def recognize_face(message):
         result = compare_faces(np.array(unknown_face_embedding))
 
         if result:
-            return {"status": True, "message": "Recognition successful", "name": result}
+            return {"status": True, "message": "Recognition successful", "name": result["name"], "id": result["id"]}
         else:
             return {"status": False, "message": "No match found."}
 
     except Exception as e:
         return {"status": False, "message": str(e)}
+
 
 
 # Compare the unknown face embedding to session embeddings
@@ -148,15 +153,15 @@ def compare_faces(unknown_face_embedding):
     best_match = None
     best_similarity = -1
 
-    for name, embedding in session_embeddings.items():
-        similarity = cosine_similarity([unknown_face_embedding], [embedding])[0][0]
+    for name, data in session_embeddings.items():
+        similarity = cosine_similarity([unknown_face_embedding], [data["embedding"]])[0][0]
         print(f"Similarity with {name}: {similarity}", flush=True)
 
         if similarity > best_similarity and similarity > threshold:
             best_similarity = similarity
-            best_match = name
+            best_match = {"name": name, "id": data["id"]}  # Include user ID
 
-    return best_match  # Return the name if the match is found, otherwise None
+    return best_match  # Return the match if found, otherwise None
 
 
 # Main server
