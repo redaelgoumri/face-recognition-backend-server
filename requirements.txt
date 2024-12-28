@@ -8,3 +8,4 @@ scikit-learn
 python-dotenv
 supabase
 tf-keras
+python-docx

@@ -57,62 +57,34 @@ def load_session_embeddings(year, specialty, group):
 # WebSocket handler
 async def websocket_handler(websocket):
     print("New connection established.", flush=True)
+    present_students = []  # Track students for this session
+
     try:
-        # Expect the first message to contain session details
         initial_message = await websocket.recv()
-        print(f"Received initial message: {initial_message}", flush=True)
+        session_data = json.loads(initial_message)
 
-        try:
-            session_data = json.loads(initial_message)
-        except json.JSONDecodeError as e:
-            error_message = {"status": False, "message": "Invalid JSON format"}
-            print(f"JSON Decode Error: {e}. Sending: {error_message}", flush=True)
-            await websocket.send(json.dumps(error_message))
-            return
-
-        # Extract session details
         year = session_data.get("year")
         specialty = session_data.get("specialty")
         group = session_data.get("group")
-        print(f"Parsed session details: year={year}, specialty={specialty}, group={group}", flush=True)
 
-        if not year or not specialty or not group:
-            error_message = {"status": False, "message": "Invalid session details"}
-            print(f"Invalid session details: {session_data}. Sending: {error_message}", flush=True)
-            await websocket.send(json.dumps(error_message))
-            return
-
-        # Load session embeddings
-        print(f"Loading embeddings for year={year}, specialty={specialty}, group={group}", flush=True)
         load_session_embeddings(year, specialty, group)
-        print("Embeddings loaded successfully.", flush=True)
 
-        # Notify client of successful initialization
-        success_message = {"status": True, "message": "Session initialized"}
-        print(f"Sending: {success_message}", flush=True)
-        await websocket.send(json.dumps(success_message))
+        await websocket.send(json.dumps({"status": True, "message": "Session initialized"}))
 
-        # Process subsequent messages for face recognition
         async for message in websocket:
-            print(f"Received face recognition message: <IMAGE>", flush=True)
+            response = recognize_face(message)
 
-            try:
-                response = recognize_face(message)
-                print(f"Sending face recognition response: {response}", flush=True)
-                await websocket.send(json.dumps(response))
-            except Exception as e:
-                error_message = {"status": False, "message": f"Error processing message: {str(e)}"}
-                print(f"Error: {str(e)}. Sending: {error_message}", flush=True)
-                await websocket.send(json.dumps(error_message))
+            if response["status"]:
+                present_students.append(response)
+
+            await websocket.send(json.dumps(response))
+            print(f"Sent to client: {response}", flush=True)
 
     except websockets.exceptions.ConnectionClosed:
         print("Connection closed.", flush=True)
-    except Exception as e:
-        print(f"Unexpected WebSocket Error: {str(e)}", flush=True)
     finally:
-        # Clear the session embeddings when the connection is closed or an error occurs
+        print(f"<PRESENTSTUDENTS> {json.dumps(present_students, indent=2)}", flush=True)
         session_embeddings.clear()
-        print("Cleared session embeddings.", flush=True)
 
 
 # Recognize face from the incoming image
